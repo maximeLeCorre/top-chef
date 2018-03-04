@@ -1,11 +1,17 @@
 const request = require('request');
 const cheerio = require('cheerio');
+const fs = require('fs');
 const deasync = require("deasync")
 const request_sync = require('sync-request')
 
+var jsonFile = "restaurantMichelin.json";
+
 function recup_michelin(){
 	var url = "https://restaurant.michelin.fr/restaurants/france/restaurants-1-etoile-michelin/restaurants-2-etoiles-michelin/restaurants-3-etoiles-michelin/page-"; 
-
+	var rootUrl = "https://restaurant.michelin.fr/";
+	
+	fs.writeFileSync(jsonFile, '{"restaurantMichelin" : [');
+	
 	for(i = 1; i < 80 ; i++){
 		
 		console.log('traitement de la page' + i);
@@ -47,11 +53,11 @@ function recup_michelin(){
 						}
 					})
 					
-					var nom = $('div.poi_card-display-title',this).text();
+					var nom = $('div.poi_card-display-title',this).text().trim().replace("\"", "").replace("\n", "").replace("\r","").replace(/"/g, '');
 			
-					var tranche_prix = $('div.poi_card-display-price', this).text();
+					var tranche_prix = $('div.poi_card-display-price', this).text().trim().replace("\"", "").replace("\n", "").replace("\r","");
 				
-					var type_cuisine = $('div.poi_card-display-cuisines', this).text();
+					var type_cuisine = $('div.poi_card-display-cuisines', this).text().trim().replace("\"", "").replace("\n", "").replace("\r","");
 				
 					var nb_avis = $('span.poi_card-display-reviews-count', this).text();
 				
@@ -68,22 +74,61 @@ function recup_michelin(){
 					if($('span',this).attr('class').indexOf('3etoile') != -1){
 						var etoile = 3;
 					}
-			
-					console.log('nom du retaurant : ' + nom.trim());
+					var urlSuite = $('a.poi-card-link',this).attr("href");
+					
+					console.log(rootUrl + urlSuite);
+					
+					request(rootUrl + urlSuite, function(error, response, body) {
+						var $1 = cheerio.load(body);
+						
+						try{
+							var adresse = $1('div.thoroughfare')[0].children[0].data;
+						}catch(err){
+							var adresse = "";
+						}
+						
+						try{
+							var codePostal = $1('span.postal-code')[0].children[0].data;
+						}catch(err){
+							var codePostal = "";
+						}
+						
+						try{
+							var ville = $1('span.locality')[0].children[0].data;
+						}catch(err){
+							var ville = "";
+						}
+						
+						var telephone = $1('.tel').text();
+						
+						console.log(telephone);
+						
+					/*console.log('nom du retaurant : ' + nom.trim());
 					console.log('tranche de prix : ' + tranche_prix.trim());
 					console.log('nombre d\'etoile : ' + etoile);
 					console.log('type de cuisine : ' + type_cuisine.trim());
 					console.log('nombre d\'avis : ' + nb_avis); 
 					console.log('note : ' + arrondi_note);
 					
-					console.log('');
+					console.log('');*/
+					
+					fs.appendFileSync(jsonFile, '\n{"nom":"' + nom + '","tranchePrix":"' + tranche_prix + '","typeCuisine": "' + type_cuisine + '","nbAvis":"' + nb_avis + '","adresse":"' + adresse + '","codePostal":"' + codePostal + '","etoileMichelin":"' + etoile + '","noteMichelin":"' + arrondi_note + '","ville":"' + ville + '","telephone":"' + telephone + '"},');
+					});
+					
 				})
 			}
+			
+			
 		});
 	
 	}
+	console.log('ok');
 }
 
 recup_michelin();
+
+function writeEndFile(query, test){
+	fs.appendFileSync(jsonFile, ']}');
+};
 
   
